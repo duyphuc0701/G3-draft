@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor Customer
+    participant UI as Mobile/Web App
+    participant Orch as Onboarding Orchestrator
+    participant IDV as IDV Service (3rd Party)
+
+    Note over Customer, IDV: Trigger Verification Step
+    UI->>Orch: POST /onboarding/{sessionId}/verify
+    Orch-->>UI: 202 Accepted (State: VERIFICATION_PENDING)
+    
+    par Async Processing & Polling
+        loop UI Polling (Every 3-5s)
+            UI->>Orch: GET /onboarding/{sessionId}/status
+            Orch-->>UI: 200 OK (State: VERIFICATION_PENDING)
+            Note over Customer, UI: UI shows: "We’re reviewing your information. This may take a few minutes."
+        end
+    and Backend IDV Integration
+        Orch->>IDV: POST /verify (Trigger OCR, face match)
+        
+        Note right of IDV: 3rd-party provider experiences latency/timeout or enforces strict rate limits
+        IDV-->>Orch: 504 Gateway Timeout or 429 Too Many Requests
+        
+        Note over Orch: System applies Retry/Backoff pattern
+        
+        Orch->>IDV: POST /verify (Retry attempt 1 after delay)
+        IDV-->>Orch: 200 OK (Verified)
+        
+        Note over Orch: State transitions to ACCOUNT_CREATION_PENDING
+    end
+
+    UI->>Orch: GET /onboarding/{sessionId}/status
+    Orch-->>UI: 200 OK (State: ACCOUNT_CREATION_PENDING)
+    Note over Customer, UI: Customer journey proceeds smoothly despite backend timeout

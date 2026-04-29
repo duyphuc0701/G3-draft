@@ -1,0 +1,62 @@
+sequenceDiagram
+    autonumber
+    actor Customer
+    participant UI as Mobile/Web App
+    participant Gateway as API Gateway
+    participant Orch as Onboarding Orchestrator
+    participant CIS as Customer Info Service
+    participant Doc as Document Service
+    participant IDV as IDV Service
+    participant Risk as Risk & Compliance
+    participant Core as Account Service
+    participant Kafka as Event Backbone
+    participant Notif as Notification Service
+
+    Note over Customer, Orch: 1. Start Onboarding & Capture Details
+    Customer->>UI: Starts onboarding journey
+    UI->>Gateway: POST /onboarding
+    Gateway->>Orch: Route request
+    Orch-->>UI: 201 Created (sessionId)
+
+    Customer->>UI: Enters personal details
+    UI->>Orch: PUT /onboarding/{sessionId}/personal-details
+    Orch->>CIS: Validate & stage data
+    CIS-->>Orch: Validation successful
+    Orch-->>UI: 200 OK
+
+    Note over Customer, Doc: 2. Document Upload
+    Customer->>UI: Uploads ID card & face scan
+    UI->>Orch: POST /onboarding/{sessionId}/documents
+    Orch->>Doc: Securely store ID and selfie
+    Doc-->>Orch: Storage confirmed
+    Orch-->>UI: 200 OK
+
+    Note over UI, Risk: 3. Automated Verification Checks
+    UI->>Orch: POST /onboarding/{sessionId}/verify
+    Orch-->>UI: 202 Accepted (VERIFICATION_PENDING)
+    
+    par Verification
+        Orch->>IDV: Trigger OCR, liveness, face match
+        IDV-->>Orch: Verified
+    and Compliance
+        Orch->>Risk: Trigger AML/PEP screening
+        Risk-->>Orch: Verified
+    end
+
+    Note over Orch, Core: 4. Profile & Account Creation
+    Orch->>CIS: Create golden record of customer
+    CIS->>Kafka: Publish customer.created event
+    CIS-->>Orch: Profile created
+
+    Orch->>Core: Request account creation
+    Core-->>Orch: 202 Accepted (ACCOUNT_CREATION_PENDING)
+    Core->>Kafka: Publish account.opened event
+    
+    Note over Kafka, Notif: 5. Completion & Notification
+    Kafka->>Notif: Consume account.opened
+    Notif-->>Customer: Send Welcome Email/SMS
+    
+    Kafka->>Orch: Consume account.opened
+    Orch-->>UI: Update state to COMPLETED
+    
+    UI-->>Customer: Display "Your new account is ready!"

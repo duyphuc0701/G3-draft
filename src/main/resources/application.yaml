@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: onboarding-orchestrator
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orchestrator_db
+    username: user
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: validate # Use Flyway/Liquibase for actual schema management
+    show-sql: true
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9094
+    consumer:
+      group-id: onboarding-orchestrator-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+# Custom application properties for REST clients (pointing to WireMock)
+app:
+  services:
+    idv-url: http://localhost:8080/idv
+    doc-url: http://localhost:8080/documents
+    risk-url: http://localhost:8080/risk
+    cis-url: http://localhost:8080/cis
+    core-adapter-url: http://localhost:8080/core-adapter
+
+# Resilience4j Configuration
+resilience4j.circuitbreaker:
+  instances:
+    downstream-services:
+      registerHealthIndicator: true
+      slidingWindowSize: 10
+      minimumNumberOfCalls: 5
+      permittedNumberOfCallsInHalfOpenState: 3
+      waitDurationInOpenState: 10s
+      failureRateThreshold: 50
+
+# Logging for Promtail
+logging:
+  file:
+    name: logs/orchestrator.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor Customer
+    participant UI as Mobile/Web App
+    participant Orch as Onboarding Orchestrator
+    participant Core as Account Service (Core Adapter)
+    participant Legacy as Legacy Core Banking
+    participant Kafka as Event Backbone
+    participant Notif as Notification Service
+
+    Note over Orch, Legacy: 1. Trigger Account Creation
+    Orch->>Core: Command: Create Bank Account
+    Core->>Legacy: Attempt message-based write
+    
+    Note right of Legacy: Core system is overwhelmed or times out
+    Legacy-->>Core: Connection Timeout / Failure
+    
+    Note over Core: Circuit Breaker trips.<br/>Request saved to local queue for async processing.
+    Core-->>Orch: 202 Accepted (ACCOUNT_CREATION_PENDING)
+
+    Note over Customer, Orch: 2. UI Polling & Graceful Degradation
+    loop UI Polling (Every 3-5s)
+        UI->>Orch: GET /onboarding/{sessionId}/status
+        Orch-->>UI: 200 OK (Status: ACCOUNT_CREATION_PENDING)
+        Note over Customer, UI: UI shows: "We’re finalising your new account. You’ll get a message shortly"
+    end
+
+    Note over Core, Legacy: 3. Background Processing (Traffic Shaping)
+    Core->>Legacy: Drip-feed queued request (Retry)
+    Legacy-->>Core: Account Created Successfully
+
+    Note over Core, Notif: 4. Event Publication & Choreography
+    Core->>Kafka: Publish account.opened event
+    
+    par Asynchronous Notifications
+        Kafka->>Notif: Consume account.opened
+        Notif-->>Customer: Send Welcome Email/SMS
+    and Orchestrator State Update
+        Kafka->>Orch: Consume account.opened
+        Note over Orch: Update session status to COMPLETED
+    end
