@@ -2,16 +2,19 @@ sequenceDiagram
     autonumber
     actor Customer
     participant UI as Mobile/Web App
+    participant BFF as Web/Mobile BFF
     participant Orch as Onboarding Orchestrator
     participant IDV as IDV Service (3rd Party)
 
     Note over Customer, IDV: Trigger Verification Step
-    UI->>Orch: POST /onboarding/{sessionId}/verify
+    UI->>BFF: POST /onboarding/{sessionId}/verify
+    BFF->>Orch: Route request
     Orch-->>UI: 202 Accepted (State: VERIFICATION_PENDING)
     
     par Async Processing & Polling
         loop UI Polling (Every 3-5s)
-            UI->>Orch: GET /onboarding/{sessionId}/status
+            UI->>BFF: GET /onboarding/{sessionId}/status
+            BFF->>Orch: Route request
             Orch-->>UI: 200 OK (State: VERIFICATION_PENDING)
             Note over Customer, UI: UI shows: "We’re reviewing your information. This may take a few minutes."
         end
@@ -29,6 +32,7 @@ sequenceDiagram
         Note over Orch: State transitions to ACCOUNT_CREATION_PENDING
     end
 
-    UI->>Orch: GET /onboarding/{sessionId}/status
+    UI->>BFF: GET /onboarding/{sessionId}/status
+    BFF->>Orch: Route request
     Orch-->>UI: 200 OK (State: ACCOUNT_CREATION_PENDING)
     Note over Customer, UI: Customer journey proceeds smoothly despite backend timeout

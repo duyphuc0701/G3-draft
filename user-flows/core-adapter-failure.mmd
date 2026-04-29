@@ -2,40 +2,37 @@ sequenceDiagram
     autonumber
     actor Customer
     participant UI as Mobile/Web App
+    participant BFF as Web/Mobile BFF
     participant Orch as Onboarding Orchestrator
-    participant Core as Account Service (Core Adapter)
-    participant Legacy as Legacy Core Banking
+    participant CoreAdapter as Account Creation Service
     participant Kafka as Event Backbone
+    participant CoreBank as Core Banking
     participant Notif as Notification Service
 
-    Note over Orch, Legacy: 1. Trigger Account Creation
-    Orch->>Core: Command: Create Bank Account
-    Core->>Legacy: Attempt message-based write
-    
-    Note right of Legacy: Core system is overwhelmed or times out
-    Legacy-->>Core: Connection Timeout / Failure
-    
-    Note over Core: Circuit Breaker trips.<br/>Request saved to local queue for async processing.
-    Core-->>Orch: 202 Accepted (ACCOUNT_CREATION_PENDING)
+    Note over Orch, Kafka: 1. Trigger Account Creation
+    Orch->>CoreAdapter: Request account creation
+    CoreAdapter->>Kafka: Publish account.requested (topic-account-events)
+    CoreAdapter-->>Orch: 202 Accepted (ACCOUNT_CREATION_PENDING)
 
     Note over Customer, Orch: 2. UI Polling & Graceful Degradation
     loop UI Polling (Every 3-5s)
-        UI->>Orch: GET /onboarding/{sessionId}/status
+        UI->>BFF: GET /onboarding/{sessionId}/status
+        BFF->>Orch: Route Request
         Orch-->>UI: 200 OK (Status: ACCOUNT_CREATION_PENDING)
         Note over Customer, UI: UI shows: "We’re finalising your new account. You’ll get a message shortly"
     end
 
-    Note over Core, Legacy: 3. Background Processing (Traffic Shaping)
-    Core->>Legacy: Drip-feed queued request (Retry)
-    Legacy-->>Core: Account Created Successfully
+    Note over Kafka, CoreBank: 3. Delayed Background Processing
+    Note right of CoreBank: Core system is overwhelmed. It consumes the event slowly.
+    Kafka->>CoreBank: Consume account.requested (delayed)
+    CoreBank->>Kafka: Publish account.opened (topic-account-events)
 
-    Note over Core, Notif: 4. Event Publication & Choreography
-    Core->>Kafka: Publish account.opened event
-    
-    par Asynchronous Notifications
-        Kafka->>Notif: Consume account.opened
-        Notif-->>Customer: Send Welcome Email/SMS
-    and Orchestrator State Update
+    Note over Kafka, Notif: 4. Event Publication & Choreography
+    par Orchestrator State Update
         Kafka->>Orch: Consume account.opened
         Note over Orch: Update session status to COMPLETED
+        Orch->>Kafka: Publish onboarding.status.changed (topic-onboarding-events)
+    and Asynchronous Notifications
+        Kafka->>Notif: Consume onboarding.status.changed
+        Notif-->>Customer: Send Welcome Email/SMS
     end

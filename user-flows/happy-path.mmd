@@ -2,20 +2,21 @@ sequenceDiagram
     autonumber
     actor Customer
     participant UI as Mobile/Web App
-    participant Gateway as API Gateway
+    participant BFF as Web/Mobile BFF
     participant Orch as Onboarding Orchestrator
     participant CIS as Customer Info Service
     participant Doc as Document Service
     participant IDV as IDV Service
     participant Risk as Risk & Compliance
-    participant Core as Account Service
+    participant CoreAdapter as Account Creation Service
     participant Kafka as Event Backbone
+    participant CoreBank as Core Banking
     participant Notif as Notification Service
 
     Note over Customer, Orch: 1. Start Onboarding & Capture Details
     Customer->>UI: Starts onboarding journey
-    UI->>Gateway: POST /onboarding
-    Gateway->>Orch: Route request
+    UI->>BFF: POST /onboarding
+    BFF->>Orch: Route request
     Orch-->>UI: 201 Created (sessionId)
 
     Customer->>UI: Enters personal details
@@ -43,20 +44,26 @@ sequenceDiagram
         Risk-->>Orch: Verified
     end
 
-    Note over Orch, Core: 4. Profile & Account Creation
+    Note over Orch, CoreAdapter: 4. Profile & Account Creation
     Orch->>CIS: Create golden record of customer
-    CIS->>Kafka: Publish customer.created event
     CIS-->>Orch: Profile created
 
-    Orch->>Core: Request account creation
-    Core-->>Orch: 202 Accepted (ACCOUNT_CREATION_PENDING)
-    Core->>Kafka: Publish account.opened event
+    Orch->>CoreAdapter: Request account creation
+    CoreAdapter->>Kafka: Publish account.requested (topic-account-events)
+    CoreAdapter-->>Orch: 202 Accepted (ACCOUNT_CREATION_PENDING)
     
-    Note over Kafka, Notif: 5. Completion & Notification
-    Kafka->>Notif: Consume account.opened
+    Note over Kafka, CoreBank: 5. Async Core Banking Processing
+    Kafka->>CoreBank: Consume account.requested
+    CoreBank->>Kafka: Publish account.opened (topic-account-events)
+    
+    Note over Kafka, Notif: 6. Completion & Notification State Change
+    Kafka->>Orch: Consume account.opened
+    Note over Orch: Update session state to COMPLETED
+    Orch->>Kafka: Publish onboarding.status.changed (topic-onboarding-events)
+    
+    Kafka->>Notif: Consume onboarding.status.changed
     Notif-->>Customer: Send Welcome Email/SMS
     
-    Kafka->>Orch: Consume account.opened
-    Orch-->>UI: Update state to COMPLETED
-    
+    UI->>Orch: GET /onboarding/{sessionId}/status
+    Orch-->>UI: 200 OK (Status: COMPLETED)
     UI-->>Customer: Display "Your new account is ready!"
