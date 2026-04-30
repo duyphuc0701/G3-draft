@@ -9,7 +9,7 @@ spring:
     password: password
   jpa:
     hibernate:
-      ddl-auto: validate # Use Flyway/Liquibase for actual schema management
+      ddl-auto: update # Automatically creates the tables for development
     show-sql: true
 
   # Kafka Configuration
@@ -22,18 +22,15 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+        schema.registry.url: http://localhost:8081
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
-# Custom application properties for REST clients (pointing to WireMock)
-app:
-  services:
-    idv-url: http://localhost:8080/idv
-    doc-url: http://localhost:8080/documents
-    risk-url: http://localhost:8080/risk
-    cis-url: http://localhost:8080/cis
-    core-adapter-url: http://localhost:8080/core-adapter
+idv.service.url: http://localhost:8089
+document.service.url: http://localhost:8089
+risk.service.url: http://localhost:8089
+cis.service.url: http://localhost:8089
 
 # Resilience4j Configuration
 resilience4j.circuitbreaker:

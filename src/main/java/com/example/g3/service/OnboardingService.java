@@ -11,6 +11,8 @@ import com.example.g3.dto.PersonalDetailsRequest;
 import com.example.g3.messaging.OnboardingEventProducer;
 import com.example.g3.repository.OnboardingSessionRepository;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
@@ -18,6 +20,8 @@ import com.example.g3.messaging.AccountEventProducer;
 
 @Service
 public class OnboardingService {
+
+    private static final Logger log = LoggerFactory.getLogger(OnboardingService.class);
 
     private final OnboardingSessionRepository repository;
     private final CisClient cisClient;
@@ -173,6 +177,7 @@ public class OnboardingService {
             // Update state
             session.setStatus(OnboardingStatus.ACCOUNT_REQUESTED);
         } catch (Exception e) {
+            log.error("Exception in verify()", e);
             session.setStatus(OnboardingStatus.FAILED);
         }
         

@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPattern": "/idv/verify"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "verficationStatus": "PASSED",
+      "reasonCodes": [],
+      "riskScore": 10
+    }
+  }
+}

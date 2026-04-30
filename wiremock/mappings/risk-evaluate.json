@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPattern": "/compliance/check"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "amlStatus": "PASSED",
+      "pepStatus": "PASSED",
+      "reasonCodes": [],
+      "checkedAt": "2026-04-29T00:00:00Z"
+    }
+  }
+}

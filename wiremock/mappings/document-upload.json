@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPattern": "/documents/upload"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "documentId": "doc-12345",
+      "storageLocation": "s3://bucket/doc-12345"
+    }
+  }
+}
