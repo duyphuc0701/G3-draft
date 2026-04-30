@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
         "cis.service.url=http://localhost:${wiremock.server.port}",
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @AutoConfigureWireMock(port = 0)
+@Import(TestcontainersConfiguration.class)
 public class OnboardingIntegrationTest {
 
     @org.springframework.boot.test.mock.mockito.MockBean
