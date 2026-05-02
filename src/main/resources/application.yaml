@@ -43,6 +43,35 @@ resilience4j.circuitbreaker:
       waitDurationInOpenState: 10s
       failureRateThreshold: 50
 
+
+resilience4j.timelimiter:
+  instances:
+    idv:
+      timeoutDuration: 65s
+    document:
+      timeoutDuration: 3s
+    risk:
+      timeoutDuration: 65s
+      
+resilience4j.retry:
+  instances:
+    idv:
+      maxAttempts: 3
+      waitDuration: 2s
+      retryExceptions: com.example.g3.client.IdvRetryableException
+    cis:
+      maxAttempts: 3
+      waitDuration: 2s
+      retryExceptions: com.example.g3.client.CisRetryableException
+    document:
+      maxAttempts: 3
+      waitDuration: 2s
+      retryExceptions: com.example.g3.client.DocumentRetryableException
+    risk:
+      maxAttempts: 3
+      waitDuration: 5s
+      retryExceptions: com.example.g3.client.RiskRetryableException
+  
 # Logging for Promtail
 logging:
   file:

@@ -6,48 +6,43 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CompletableFuture;
 
 @Component
 public class RiskClient {
 
-    private final RestTemplate restTemplate;
-    private final String baseUrl;
+    private final WebClient webClient;
 
-    public RiskClient(@Qualifier("riskRestTemplate") RestTemplate restTemplate, @Value("${risk.service.url:http://localhost:8084}") String baseUrl) {
-        this.restTemplate = restTemplate;
-        this.baseUrl = baseUrl;
+    public RiskClient(@Qualifier("riskWebClient") WebClient webClient) {
+        this.webClient = webClient;
     }
 
     @TimeLimiter(name = "risk")
     @CircuitBreaker(name = "risk")
     @Retry(name = "risk")
     public CompletableFuture<RiskComplianceResponse> performComplianceCheck(String correlationId, String idempotencyKey, RiskComplianceRequest request) {
-        return CompletableFuture.supplyAsync(() -> {
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Correlation-Id", correlationId);
-            headers.set("X-Idempotency-Key", idempotencyKey);
-            HttpEntity<RiskComplianceRequest> entity = new HttpEntity<>(request, headers);
+        return webClient.post()
+                .uri("/compliance/check")
+                .header("X-Correlation-Id", correlationId)
+                .header("X-Idempotency-Key", idempotencyKey)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(status -> status.value() == 429 || status.value() == 503, this::retryableError)
+                .onStatus(status -> status.isError(), this::nonRetryableError)
+                .bodyToMono(RiskComplianceResponse.class)
+                .toFuture();
+    }
 
-            try {
-                ResponseEntity<RiskComplianceResponse> response = restTemplate.exchange(
-                        baseUrl + "/compliance/check", HttpMethod.POST, entity, RiskComplianceResponse.class);
-                return response.getBody();
-            } catch (HttpStatusCodeException e) {
-                if (e.getStatusCode().value() == 429 || e.getStatusCode().value() == 503) {
-                    throw new RiskRetryableException("Retryable compliance error: " + e.getStatusCode());
-                }
-                throw new RiskNonRetryableException("Non-retryable compliance error: " + e.getStatusCode());
-            }
-        });
+    private Mono<? extends Throwable> retryableError(ClientResponse response) {
+        return Mono.just(new RiskRetryableException("Retryable compliance error: " + response.statusCode()));
+    }
+
+    private Mono<? extends Throwable> nonRetryableError(ClientResponse response) {
+        return Mono.just(new RiskNonRetryableException("Non-retryable compliance error: " + response.statusCode()));
     }
 }

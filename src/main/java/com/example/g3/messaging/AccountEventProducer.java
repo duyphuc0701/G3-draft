@@ -14,13 +14,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Component
 public class AccountEventProducer {
 
     private static final Logger log = LoggerFactory.getLogger(AccountEventProducer.class);
-    private static final String TOPIC = "account.requested";
+    private static final String TOPIC = "topic-account-events";
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
